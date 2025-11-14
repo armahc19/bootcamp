@@ -124,7 +124,7 @@ const Index = () => {
             Zero to Creator: Build real skills, solve problems, and launch projects from scratch.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link to="/signup">
+            <Link to="/pre-bootcamp">
               <Button size="lg" className="text-lg px-8">
                 Start Free Pre-Bootcamp
                 <ArrowRight className="ml-2 w-5 h-5" />
@@ -194,7 +194,7 @@ const Index = () => {
                   ))}
                 </div>
                 <div className="flex gap-4">
-                  <Link to="/signup">
+                  <Link to="/pre-bootcamp">
                     <Button>Start Free Pre-Bootcamp</Button>
                   </Link>
                   <Button variant="outline">Enroll in Full Course</Button>
@@ -229,7 +229,7 @@ const Index = () => {
             Pre-Bootcamp available for free — start your journey today!
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link to="/signup">
+            <Link to="/pre-bootcamp">
               <Button size="lg" variant="secondary" className="text-lg px-8">
                 Start Free Pre-Bootcamp
               </Button>
