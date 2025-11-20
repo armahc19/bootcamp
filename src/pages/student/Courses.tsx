@@ -46,7 +46,7 @@ const StudentCourses = () => {
       // If the enrollment already exists, redirect directly
       if (error.code === "23505") {
         console.log("Already enrolled, redirecting...");
-        navigate(`/student/course/lessons/${courseId}`);
+        navigate(`/student/lessons/${courseId}`);
         return;
       }
       console.error(error);
@@ -56,7 +56,7 @@ const StudentCourses = () => {
   
     // Enrollment successful
     alert("Enrolled successfully!");
-    navigate(`/student/course/${courseId}/lessons`);
+    navigate(`student/lessons/${courseId}`);
   };
   
   
