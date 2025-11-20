@@ -1,22 +1,57 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link ,useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+import { auth, db } from "@/firebase/config";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
+  const [loading, setLoading] = useState(false); // ✅ new state
+  const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Authentication logic will be added later
-    console.log("Login attempt:", { email, password, rememberMe });
+    setLoading(true); // button enters loading state
+
+    try {
+      // Sign in user with Firebase Auth
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // Fetch additional user info from Firestore
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      const userData = userDoc.data();
+
+      if (!userData) {
+        alert("User data not found!");
+        return;
+      }
+
+      // Redirect based on role
+      if (userData.role === "student") {
+        navigate("/student/dashboard");
+      } else if (userData.role === "instructor") {
+        navigate("/instructor/dashboard");
+      } else if (userData.role === "admin") {
+        navigate("/admin/dashboard");
+      } else {
+        navigate("/"); // fallback
+      }
+
+    } catch (error: any) {
+      console.error("Login error:", error);
+      alert(error.message);
+    }
   };
 
+  
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -75,8 +110,13 @@ const Login = () => {
                   Remember me
                 </label>
               </div>
-              <Button type="submit" className="w-full">
-                Login
+               {/* ✅ Login button with loading state */}
+               <Button 
+                type="submit" 
+                className={`w-full ${loading ? "bg-muted text-muted-foreground cursor-not-allowed" : ""}`}
+                disabled={loading}
+              >
+                {loading ? "Logging in..." : "Login"}
               </Button>
             </form>
 

@@ -1,11 +1,17 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link,useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { doc, setDoc,serverTimestamp } from "firebase/firestore";
+import { auth,db } from "@/firebase/config";
+
+
+
 
 const Signup = () => {
   const [formData, setFormData] = useState({
@@ -16,8 +22,10 @@ const Signup = () => {
     role: "student",
     agreeToTerms: false
   });
+  const navigate = useNavigate();
 
   const [passwordStrength, setPasswordStrength] = useState("");
+  const [loading, setLoading] = useState(false); // ✅ new state
 
   const checkPasswordStrength = (password: string) => {
     if (password.length === 0) {
@@ -45,8 +53,10 @@ const Signup = () => {
     checkPasswordStrength(password);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true); // button enters loading state
+
     if (formData.password !== formData.confirmPassword) {
       alert("Passwords don't match!");
       return;
@@ -55,9 +65,50 @@ const Signup = () => {
       alert("Please agree to the terms and conditions");
       return;
     }
-    // Authentication logic will be added later
-    console.log("Signup attempt:", formData);
+  
+    try {
+      // Create Firebase Auth user
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        formData.email,
+        formData.password
+      );
+  
+      const user = userCredential.user;
+  
+      // Update display name
+      await updateProfile(user, { displayName: formData.fullName });
+  
+      // Store additional fields in Firestore
+      await setDoc(doc(db, "users", user.uid), {
+        fullName: formData.fullName,
+        email: formData.email,
+        role: formData.role,
+        createdAt: serverTimestamp(), // Firebase server timestamp
+        agreeToTermsAt: formData.agreeToTerms ? serverTimestamp() : null, // only store if agreed
+        passwordStrength: passwordStrength, // 'Weak', 'Medium', 'Strong'
+      });
+  
+      console.log("User created:", user);
+      
+      alert("Account created successfully! You can now login.");
+      navigate("/login");
+     /* // Redirect to login page or dashboard based on roles
+      if (formData.role === "student") {
+        navigate("/student/dashboard");
+      } else if (formData.role === "instructor") {
+        navigate("/instructor/dashboard");
+      } else {
+        navigate("/"); // fallback
+      }*/
+
+    } catch (error: any) {
+      console.error("Signup error:", error);
+      alert(error.message);
+    }
   };
+  
+  
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4 py-12">
@@ -148,6 +199,10 @@ const Signup = () => {
                     <RadioGroupItem value="instructor" id="instructor" />
                     <Label htmlFor="instructor" className="font-normal cursor-pointer">Instructor</Label>
                   </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="admin" id="admin" />
+                    <Label htmlFor="admin" className="font-normal cursor-pointer">Admin</Label>
+                  </div>
                 </RadioGroup>
               </div>
 
@@ -172,8 +227,14 @@ const Signup = () => {
                 </label>
               </div>
 
-              <Button type="submit" className="w-full">
-                Create Account
+
+              {/* ✅ Login button with loading state */}
+              <Button 
+                type="submit" 
+                className={`w-full ${loading ? "bg-muted text-muted-foreground cursor-not-allowed" : ""}`}
+                disabled={loading}
+              >
+                {loading ? "Creating an account..." : "Create Account"}
               </Button>
             </form>
 

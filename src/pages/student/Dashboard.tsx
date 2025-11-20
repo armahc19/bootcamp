@@ -7,10 +7,13 @@ import { mockCourses, mockEnrollments } from "@/data/mockData";
 import { Award, BookOpen, Clock, TrendingUp } from "lucide-react";
 import { StatsCard } from "@/components/StatsCard";
 import { useNavigate } from "react-router-dom";
+import { getAuth } from "firebase/auth";
 
 const StudentDashboard = () => {
   const navigate = useNavigate();
-  
+  const auth = getAuth();
+  const user = auth.currentUser;
+
   const enrolledCourses = mockEnrollments.map(enrollment => ({
     ...mockCourses.find(c => c.id === enrollment.courseId)!,
     progress: enrollment.progress,
@@ -24,7 +27,7 @@ const StudentDashboard = () => {
       <main className="flex-1 p-8">
         <div className="max-w-7xl mx-auto">
           <div className="mb-8">
-            <h1 className="text-4xl font-bold mb-2">Welcome back, Student!</h1>
+            <h1 className="text-4xl font-bold mb-2">Welcome back, {user?.displayName || "Student"}!</h1>
             <p className="text-muted-foreground">Continue your learning journey</p>
           </div>
 

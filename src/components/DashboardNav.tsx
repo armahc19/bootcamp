@@ -1,6 +1,8 @@
 import { NavLink } from "@/components/NavLink";
 import { Home, BookOpen, User, Settings, LogOut, LayoutDashboard, Video, DollarSign, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { getAuth, signOut } from "firebase/auth";
+import { useNavigate } from "react-router-dom";
 
 interface DashboardNavProps {
   role: "student" | "instructor" | "admin";
@@ -20,7 +22,6 @@ export const DashboardNav = ({ role }: DashboardNavProps) => {
         return [
           { to: "/instructor/dashboard", icon: LayoutDashboard, label: "Dashboard" },
           { to: "/instructor/courses", icon: BookOpen, label: "My Courses" },
-          { to: "/instructor/earnings", icon: DollarSign, label: "Earnings" },
           { to: "/instructor/students", icon: Users, label: "Students" },
           { to: "/instructor/profile", icon: User, label: "Profile" }
         ];
@@ -36,6 +37,13 @@ export const DashboardNav = ({ role }: DashboardNavProps) => {
   };
 
   const links = getLinks();
+  const navigate = useNavigate();
+  const auth = getAuth();
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    navigate("/login");  // redirect to login
+  };
 
   return (
     <nav className="min-h-screen w-64 bg-background border-r border-border p-6">
@@ -61,7 +69,7 @@ export const DashboardNav = ({ role }: DashboardNavProps) => {
       </div>
 
       <div className="mt-auto pt-8 border-t border-border">
-        <Button variant="ghost" className="w-full justify-start gap-3 text-muted-foreground">
+        <Button variant="ghost" className="w-full justify-start gap-3 text-muted-foreground" onClick={handleLogout}>
           <LogOut className="w-5 h-5" />
           <span>Logout</span>
         </Button>

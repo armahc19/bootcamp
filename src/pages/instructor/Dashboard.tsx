@@ -5,9 +5,12 @@ import { Card } from "@/components/ui/card";
 import { mockInstructorStats, mockCourses } from "@/data/mockData";
 import { Users, DollarSign, BookOpen, Star, Plus, TrendingUp } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { getAuth } from "firebase/auth";
 
 const InstructorDashboard = () => {
   const navigate = useNavigate();
+  const auth = getAuth();
+  const user = auth.currentUser;
   const instructorCourses = mockCourses.filter(c => c.instructorId === "inst-1");
 
   return (
@@ -18,7 +21,7 @@ const InstructorDashboard = () => {
         <div className="max-w-7xl mx-auto">
           <div className="flex justify-between items-center mb-8">
             <div>
-              <h1 className="text-4xl font-bold mb-2">Instructor Dashboard</h1>
+              <h1 className="text-4xl font-bold mb-2">Welcome back, {user?.displayName || "Intructor"}!</h1>
               <p className="text-muted-foreground">Manage your courses and track performance</p>
             </div>
             <Button onClick={() => navigate("/instructor/courses/new")} className="gap-2">
@@ -76,6 +79,7 @@ const InstructorDashboard = () => {
           </Card>
 
           {/* My Courses */}
+          {/*
           <section>
             <h2 className="text-2xl font-bold mb-6">My Courses</h2>
             <div className="grid grid-cols-1 gap-4">
@@ -103,6 +107,7 @@ const InstructorDashboard = () => {
               ))}
             </div>
           </section>
+          */}
         </div>
       </main>
     </div>
