@@ -23,6 +23,7 @@ export const DashboardNav = ({ role }: DashboardNavProps) => {
           { to: "/instructor/dashboard", icon: LayoutDashboard, label: "Dashboard" },
           { to: "/instructor/courses", icon: BookOpen, label: "My Courses" },
           { to: "/instructor/students", icon: Users, label: "Students" },
+          { to: "/instructor/projects", icon: Projector, label: "Projects"},
           { to: "/instructor/profile", icon: User, label: "Profile" }
         ];
       case "admin":

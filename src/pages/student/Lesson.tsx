@@ -14,6 +14,7 @@ const StudentLessons = () => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const [projectText, setProjectText] = useState("");
+  const [projectScore, setProjectScore] = useState<ProjectScore | null>(null);
   const auth = getAuth();
   const user = auth.currentUser;
 
@@ -26,15 +27,122 @@ interface ProjectScore {
 }
 
 // In your component, add the state with TypeScript typing
-const [projectScore, setProjectScore] = useState<ProjectScore | null>({
+{/*const [projectScore, setProjectScore] = useState<ProjectScore | null>({
   score: 0, // Example score - set to null if not graded
   maxScore: 100,
   feedback: "No submission",
   gradedDate: "2024-01-15"
-});
+});*/}
+
+const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  // Check if user is logged in
+  if (!user) {
+    alert('Please log in to submit projects');
+    return;
+  }
+
+  // Check if already submitted
+  if (currentSubmission) {
+    const confirmResubmit = confirm(
+      'You have already submitted a project. Do you want to replace it with a new file?'
+    );
+    if (!confirmResubmit) {
+      // Reset the file input
+      event.target.value = '';
+      return;
+    }
+  }
+
+  // Check if file is PDF
+  if (file.type !== 'application/pdf') {
+    alert('Please upload a PDF file');
+    event.target.value = ''; // Reset file input
+    return;
+  }
+
+  // Check file size (optional: limit to 10MB)
+  if (file.size > 10 * 1024 * 1024) {
+    alert('File size too large. Please upload a PDF smaller than 10MB.');
+    event.target.value = '';
+    return;
+  }
+
+  try {
+    const studentId = user.uid;
+
+    // Create a unique file name
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${studentId}_${courseId}_${Date.now()}.${fileExt}`;
+    const filePath = `project-submissions/${fileName}`;
+
+    // Upload file to Supabase storage
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('uploads')
+      .upload(filePath, file);
+
+    if (uploadError) {
+      throw uploadError;
+    }
+
+    // Get the public URL
+    const { data: urlData } = supabase.storage
+      .from('uploads')
+      .getPublicUrl(filePath);
+
+    // If replacing existing submission, delete old file first
+    if (currentSubmission && currentSubmission.file_path) {
+      await supabase.storage
+        .from('uploads')
+        .remove([currentSubmission.file_path]);
+    }
+
+    // Insert or update project submission record
+    const { data: projectData, error: projectError } = await supabase
+      .from('project_submissions')
+      .upsert([
+        {
+          course_id: courseId,
+          student_id: studentId,
+          file_url: urlData.publicUrl,
+          file_path: filePath,
+          submitted_at: new Date().toISOString(),
+          status: 'submitted',
+          // Reset score and feedback when resubmitting
+          score: null,
+          feedback: null,
+          graded_at: null
+        }
+      ])
+      .select()
+      .single();
+
+    if (projectError) {
+      throw projectError;
+    }
+
+    // Refresh the submission data
+    await fetchProjectSubmission();
+    alert('Project submitted successfully!');
+    
+  } catch (error) {
+    console.error('Error uploading project:', error);
+    alert('Error uploading project. Please try again.');
+  } finally {
+    // Reset file input
+    event.target.value = '';
+  }
+};
 
   // Add this function to handle file upload
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  {/*const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+
+    if (!user) {
+      alert('Please log in to submit projects');
+      return;
+    }
       const file = event.target.files?.[0];
       if (!file) return;
     
@@ -47,7 +155,7 @@ const [projectScore, setProjectScore] = useState<ProjectScore | null>({
       try {
         // You need to get the actual student_id from your auth/enrollment system
         // This is a placeholder - replace with actual student ID
-        const studentId = user?.uid;
+        const studentId = user.uid;
     
         // Create a unique file name
         const fileExt = file.name.split('.').pop();
@@ -56,7 +164,7 @@ const [projectScore, setProjectScore] = useState<ProjectScore | null>({
     
         // Upload file to Supabase storage
         const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('projects')
+          .from('uploads')
           .upload(filePath, file);
     
         if (uploadError) {
@@ -65,7 +173,7 @@ const [projectScore, setProjectScore] = useState<ProjectScore | null>({
     
         // Get the public URL
         const { data: urlData } = supabase.storage
-          .from('projects')
+          .from('uploads')
           .getPublicUrl(filePath);
     
         // Insert or update project submission record (using upsert for unique constraint)
@@ -95,8 +203,7 @@ const [projectScore, setProjectScore] = useState<ProjectScore | null>({
         alert('Error uploading project. Please try again.');
       }
   
-  };
-
+  };*/}
 
   // Add state to track current submission
 const [currentSubmission, setCurrentSubmission] = useState(null);
@@ -104,7 +211,9 @@ const [currentSubmission, setCurrentSubmission] = useState(null);
 // Function to fetch current project submission
 const fetchProjectSubmission = async () => {
   try {
-    const studentId = "YOUR_STUDENT_ID_HERE"; // Replace with actual student ID
+    if (!user) return;
+    
+    const studentId = user.uid;
     
     const { data, error } = await supabase
       .from('project_submissions')
@@ -113,20 +222,28 @@ const fetchProjectSubmission = async () => {
       .eq('student_id', studentId)
       .single();
 
-    if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
+    if (error && error.code !== 'PGRST116') {
       throw error;
     }
 
     setCurrentSubmission(data || null);
     
-    // If there's a submission with score, update projectScore state
-    if (data && data.score !== null) {
-      setProjectScore({
-        score: data.score,
-        maxScore: 100,
-        feedback: data.feedback || '',
-        gradedDate: data.graded_at || new Date().toISOString()
-      });
+    // Update projectScore state based on submission data
+    if (data) {
+      if (data.score !== null) {
+        setProjectScore({
+          score: data.score,
+          maxScore: 100,
+          feedback: data.feedback || '',
+          gradedDate: data.graded_at || new Date().toISOString()
+        });
+      } else {
+        // Submitted but not graded yet
+        setProjectScore(null);
+      }
+    } else {
+      // No submission
+      setProjectScore(null);
     }
   } catch (error) {
     console.error('Error fetching project submission:', error);
@@ -165,6 +282,12 @@ const fetchProjectSubmission = async () => {
       fetchProjectSubmission();
     }
   }, [courseId]);
+
+  useEffect(() => {
+  if (courseId && user) {
+    fetchProjectSubmission();
+  }
+}, [courseId, user]);
 
   if (loading) return <div>Loading course...</div>;
   if (!course) return <div>Course not found</div>;
@@ -219,38 +342,39 @@ const fetchProjectSubmission = async () => {
   </p>
 
   <div className="space-y-4">
-    {/* Hidden file input */}
-    <input
-      type="file"
-      id="project-upload"
-      accept=".pdf"
-      onChange={handleFileUpload}
-      className="hidden"
-    />
+  {/* Hidden file input */}
+  <input
+    type="file"
+    id="project-upload"
+    accept=".pdf"
+    onChange={handleFileUpload}
+    className="hidden"
+  />
+  
+  <div className="flex gap-4 items-center">
+    <Button 
+      variant={currentSubmission ? "outline" : "default"}
+      onClick={() => document.getElementById('project-upload')?.click()}
+    >
+      {currentSubmission ? 'Replace PDF File' : 'Upload PDF File'}
+    </Button>
     
-    <div className="flex gap-4 items-center">
-      <Button 
-        variant="outline" 
-        onClick={() => document.getElementById('project-upload')?.click()}
-      >
-        Upload PDF File
-      </Button>
-      
-      {currentSubmission && (
-        <div className="flex items-center gap-2 text-sm text-green-600">
-          <FileText className="w-4 h-4" />
-          <span>Submitted: {new Date(currentSubmission.submitted_at).toLocaleDateString()}</span>
-          <Button 
-            variant="ghost" 
-            size="sm"
-            onClick={() => window.open(currentSubmission.file_url, '_blank')}
-          >
-            View Submission
-          </Button>
-        </div>
-      )}
-    </div>
-    
+    {currentSubmission && (
+      <div className="flex items-center gap-2 text-sm text-green-600">
+        <FileText className="w-4 h-4" />
+        <span>Submitted: {new Date(currentSubmission.submitted_at).toLocaleDateString()}</span>
+        <Button 
+          variant="ghost" 
+          size="sm"
+          onClick={() => window.open(currentSubmission.file_url, '_blank')}
+        >
+          View Submission
+        </Button>
+      </div>
+    )}
+  </div>
+</div>
+  <div className="mt-6">
     {/* Project Score Display Section */}
     <div className="mt-6 p-4 border rounded-lg bg-muted/50">
       <h3 className="text-lg font-semibold mb-3">Project Evaluation</h3>
@@ -323,11 +447,12 @@ const fetchProjectSubmission = async () => {
         <aside className="w-96 border-l border-border h-[calc(100vh-73px)] overflow-y-auto p-6">
 
           {/* PDF Viewer */}
-          {course.pdfUrl && (
+          {/* PDF Viewer */}
+          {course.pdf_url && (  // Change pdfUrl to pdf_url
             <div className="mb-8">
               <h3 className="font-bold mb-3">Lesson PDF</h3>
               <iframe
-                src={course.pdfUrl}
+                src={course.pdf_url}  // Change pdfUrl to pdf_url
                 className="w-full h-[400px] rounded border"
               ></iframe>
             </div>
