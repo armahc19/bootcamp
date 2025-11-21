@@ -88,17 +88,24 @@ const StudentLessons = () => {
             {course.mini_project && (
               <Card className="p-8 mb-6">
                 <h2 className="text-2xl font-bold mb-4">Project Work</h2>
-                <p className="text-muted-foreground mb-6">{course.mini_project}</p>
+                <p className="text-muted-foreground mb-6">
+                  <pre className="whitespace-pre-wrap text-sm">
+                      {course.mini_project}
+                      F
+                  </pre>
+                  F
+                </p>
 
                 <div className="space-y-4">
-                  <Textarea
+                {/*  <Textarea
                     value={projectText}
                     onChange={(e) => setProjectText(e.target.value)}
                     placeholder="Describe your project..."
                     className="min-h-32"
-                  />
+                  />*/}
                   <Button variant="outline">Upload Files</Button>
                   <Button>Submit Project</Button>
+                  {/* Display score of the project */}
                 </div>
               </Card>
             )}
