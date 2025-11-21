@@ -5,6 +5,8 @@ import { useParams, useNavigate} from "react-router-dom";
 import { ArrowLeft, CheckCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { FileText } from 'lucide-react';
+import { getAuth } from "firebase/auth";
 
 const StudentLessons = () => {
   const { courseId } = useParams();
@@ -12,6 +14,124 @@ const StudentLessons = () => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const [projectText, setProjectText] = useState("");
+  const auth = getAuth();
+  const user = auth.currentUser;
+
+  // Define the interface for project score
+interface ProjectScore {
+  score: number;
+  maxScore: number;
+  feedback?: string;
+  gradedDate: string;
+}
+
+// In your component, add the state with TypeScript typing
+const [projectScore, setProjectScore] = useState<ProjectScore | null>({
+  score: 0, // Example score - set to null if not graded
+  maxScore: 100,
+  feedback: "No submission",
+  gradedDate: "2024-01-15"
+});
+
+  // Add this function to handle file upload
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+    
+      // Check if file is PDF
+      if (file.type !== 'application/pdf') {
+        alert('Please upload a PDF file');
+        return;
+      }
+
+      try {
+        // You need to get the actual student_id from your auth/enrollment system
+        // This is a placeholder - replace with actual student ID
+        const studentId = user?.uid;
+    
+        // Create a unique file name
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${studentId}_${courseId}_${Date.now()}.${fileExt}`;
+        const filePath = `project-submissions/${fileName}`;
+    
+        // Upload file to Supabase storage
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('projects')
+          .upload(filePath, file);
+    
+        if (uploadError) {
+          throw uploadError;
+        }
+    
+        // Get the public URL
+        const { data: urlData } = supabase.storage
+          .from('projects')
+          .getPublicUrl(filePath);
+    
+        // Insert or update project submission record (using upsert for unique constraint)
+        const { data: projectData, error: projectError } = await supabase
+          .from('project_submissions')
+          .upsert([
+            {
+              course_id: courseId,
+              student_id: studentId,
+              file_url: urlData.publicUrl,
+              file_path: filePath,
+              submitted_at: new Date().toISOString(),
+              status: 'submitted'
+            }
+          ])
+          .select()
+          .single();
+    
+        if (projectError) {
+          throw projectError;
+        }
+    
+        alert('Project submitted successfully!');
+        
+      } catch (error) {
+        console.error('Error uploading project:', error);
+        alert('Error uploading project. Please try again.');
+      }
+  
+  };
+
+
+  // Add state to track current submission
+const [currentSubmission, setCurrentSubmission] = useState(null);
+
+// Function to fetch current project submission
+const fetchProjectSubmission = async () => {
+  try {
+    const studentId = "YOUR_STUDENT_ID_HERE"; // Replace with actual student ID
+    
+    const { data, error } = await supabase
+      .from('project_submissions')
+      .select('*')
+      .eq('course_id', courseId)
+      .eq('student_id', studentId)
+      .single();
+
+    if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
+      throw error;
+    }
+
+    setCurrentSubmission(data || null);
+    
+    // If there's a submission with score, update projectScore state
+    if (data && data.score !== null) {
+      setProjectScore({
+        score: data.score,
+        maxScore: 100,
+        feedback: data.feedback || '',
+        gradedDate: data.graded_at || new Date().toISOString()
+      });
+    }
+  } catch (error) {
+    console.error('Error fetching project submission:', error);
+  }
+};
 
   useEffect(() => {
     const fetchCourseDetails = async () => {
@@ -41,6 +161,9 @@ const StudentLessons = () => {
     };
 
     fetchCourseDetails();
+    if (courseId) {
+      fetchProjectSubmission();
+    }
   }, [courseId]);
 
   if (loading) return <div>Loading course...</div>;
@@ -85,30 +208,106 @@ const StudentLessons = () => {
             </Card>
 
             {/* Project Section */}
-            {course.mini_project && (
-              <Card className="p-8 mb-6">
-                <h2 className="text-2xl font-bold mb-4">Project Work</h2>
-                <p className="text-muted-foreground mb-6">
-                  <pre className="whitespace-pre-wrap text-sm">
-                      {course.mini_project}
-                      F
-                  </pre>
-                  F
-                </p>
+{course.mini_project && (
+  // Updated project section with file display
+<Card className="p-8 mb-6">
+  <h2 className="text-2xl font-bold mb-4">Project Work</h2>
+  <p className="text-muted-foreground mb-6">
+    <pre className="whitespace-pre-wrap text-sm">
+      {course.mini_project}
+    </pre>
+  </p>
 
-                <div className="space-y-4">
-                {/*  <Textarea
-                    value={projectText}
-                    onChange={(e) => setProjectText(e.target.value)}
-                    placeholder="Describe your project..."
-                    className="min-h-32"
-                  />*/}
-                  <Button variant="outline">Upload Files</Button>
-                  <Button>Submit Project</Button>
-                  {/* Display score of the project */}
-                </div>
-              </Card>
-            )}
+  <div className="space-y-4">
+    {/* Hidden file input */}
+    <input
+      type="file"
+      id="project-upload"
+      accept=".pdf"
+      onChange={handleFileUpload}
+      className="hidden"
+    />
+    
+    <div className="flex gap-4 items-center">
+      <Button 
+        variant="outline" 
+        onClick={() => document.getElementById('project-upload')?.click()}
+      >
+        Upload PDF File
+      </Button>
+      
+      {currentSubmission && (
+        <div className="flex items-center gap-2 text-sm text-green-600">
+          <FileText className="w-4 h-4" />
+          <span>Submitted: {new Date(currentSubmission.submitted_at).toLocaleDateString()}</span>
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={() => window.open(currentSubmission.file_url, '_blank')}
+          >
+            View Submission
+          </Button>
+        </div>
+      )}
+    </div>
+    
+    {/* Project Score Display Section */}
+    <div className="mt-6 p-4 border rounded-lg bg-muted/50">
+      <h3 className="text-lg font-semibold mb-3">Project Evaluation</h3>
+      
+      {projectScore ? (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium">Score:</span>
+            <div className="flex items-center gap-2">
+              <span className="text-2xl font-bold text-green-600">
+                {projectScore.score}/{projectScore.maxScore}
+              </span>
+              <div className="w-16 bg-gray-200 rounded-full h-2.5">
+                <div 
+                  className="bg-green-600 h-2.5 rounded-full" 
+                  style={{ 
+                    width: `${(projectScore.score / projectScore.maxScore) * 100}%` 
+                  }}
+                ></div>
+              </div>
+            </div>
+          </div>
+          
+          {projectScore.feedback && (
+            <div>
+              <span className="text-sm font-medium block mb-1">Feedback:</span>
+              <p className="text-sm text-muted-foreground bg-white p-3 rounded border">
+                {projectScore.feedback}
+              </p>
+            </div>
+          )}
+          
+          <div className="text-xs text-muted-foreground">
+            Graded on: {projectScore.gradedDate}
+          </div>
+        </div>
+      ) : (
+        <div className="text-center py-4">
+          <div className="text-muted-foreground mb-2">
+            <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {currentSubmission 
+              ? "Your project is under review." 
+              : "Your project has not been submitted yet."}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            {currentSubmission 
+              ? "Please wait for instructor evaluation." 
+              : "Upload your PDF file to submit your project."}
+          </p>
+        </div>
+      )}
+    </div>
+  </div>
+</Card>
+)}
 
             {/* Navigation */}
             <div className="flex gap-4">
